@@ -1,0 +1,50 @@
+name: Build Android APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - name: Build web assets
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_USERNAME_EMAIL_DOMAIN: ${{ secrets.VITE_USERNAME_EMAIL_DOMAIN }}
+      - name: Create Android project
+        run: |
+          npx cap add android
+          npx @capacitor/assets generate --android
+          npx cap sync android
+      - name: Fixed signing key (so new APKs install over old ones)
+        run: mkdir -p ~/.android && cp android-signing/debug.keystore ~/.android/debug.keystore
+      - name: Gradle build
+        working-directory: android
+        run: |
+          sed -i 's/versionCode 1/versionCode ${{ github.run_number }}/; s/versionName "1.0"/versionName "1.0.${{ github.run_number }}"/' app/build.gradle
+          ./gradlew assembleDebug --no-daemon
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk ModernLink-1.0.${{ github.run_number }}.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ModernLink-apk
+          path: ModernLink-*.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-1.0.${{ github.run_number }}
+          name: Android 1.0.${{ github.run_number }}
+          files: ModernLink-*.apk
