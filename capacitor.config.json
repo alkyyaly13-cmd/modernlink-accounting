@@ -1,0 +1,7 @@
+{
+  "appId": "com.modernlink.accounting",
+  "appName": "Modern Link",
+  "webDir": "dist",
+  "android": { "allowMixedContent": false },
+  "server": { "androidScheme": "https" }
+}
